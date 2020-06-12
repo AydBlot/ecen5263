@@ -13,7 +13,6 @@ Referenced this code for assistance: http://ecee.colorado.edu/~ecen5623/ecen/ex/
 #include <pthread.h> 
 
 int number_of_cycles = 1;
-
 void S2(union sigval sv);
 void Scheduler(union sigval sv);
 void *S1_thread_handler(void* args);
@@ -30,7 +29,7 @@ struct itimerspec scheduler_timespec;
 struct sigevent S2_time_event; 
 struct sigevent scheduler_time_event; 
 
-#define FIB_TEST_CYCLES (11)
+#define FIB_TEST_CYCLES (100)
 #define FIB_LIMIT_FOR_32_BIT (47)
 #define FIB_LIMIT (10)
 unsigned int seqIterations = FIB_LIMIT;
@@ -66,30 +65,48 @@ void *S1_thread_handler(void* args){
 	double end_time;
 	FIB_TEST(seqIterations, FIB_TEST_CYCLES);
 	double run_time=getTimeMsec() - event_time;
-	int required_test_cycles = 3;//(int)(10.0/run_time);
+	int limit=0;
 
+	int required_test_cycles = 1650; //(int)(10.0/run_time);
 	start_time = getTimeMsec();
 	
 	while(number_of_cycles < 10){
 		sem_wait(&scheduler_flag);
 
-		FIB_TEST(seqIterations, FIB_TEST_CYCLES);
+		do
+		{
+			FIB_TEST(seqIterations, FIB_TEST_CYCLES);
+			limit++;
+		}
+		while(limit < required_test_cycles);
 
 		end_time = getTimeMsec();
 		syslog(LOG_ERR,"S1 time at iteration:%d = %lfms", number_of_cycles, (end_time-start_time));
 		number_of_cycles++;
+		limit=0;
 	}
 }
 
 void S2(union sigval sv){
-	printf("made S2\r\n");
+	double end_time = getTimeMsec();
+	printf("S2 start time = %lf\r\n", (end_time-start_time));
+	int limit=0;
+	int required_test_cycles=1525; 
 
 	while(number_of_cycles < 10 && sv.sival_int < 4){
 
 		sem_wait(&scheduler_flag);
-		FIB_TEST(seqIterations, FIB_TEST_CYCLES);
-		double end_time = getTimeMsec();
+
+		do
+		{
+			FIB_TEST(seqIterations, FIB_TEST_CYCLES);
+			limit++;
+		}
+		while(limit < required_test_cycles);
+
+		end_time = getTimeMsec();
 		syslog(LOG_ERR,"S2 time at iteration:%d = %lfms", number_of_cycles, (end_time-start_time));
+		limit=0;
 		number_of_cycles++;
 		sv.sival_int++;
 	}
@@ -103,6 +120,7 @@ void main(void){
 
 	pthread_t S1_thread;
 	if (sem_init (&scheduler_flag, 0, 0)) { printf ("Failed to initialize scheduler_flag semaphore\n"); exit (-1); }
+	sem_post(&scheduler_flag);
 
 	//Configure S1_timer for S1 to execute every 10 MS
 	S2_timespec.it_value.tv_sec = 0;
@@ -146,14 +164,14 @@ void main(void){
 	}
 	printf("created timer\r\n");
 
-	//intialize S2
-	int ret = timer_settime(S2_timer, 0, &S2_timespec, NULL);
-	if(ret){
+	//Initialize scheduler
+	int scheduler_ret = timer_settime(scheduler_timer, 0, &scheduler_timespec, NULL);
+	if(scheduler_ret){
 		perror ("timer_settime");
 	}
 
-	//Initialize scheduler
-	int scheduler_ret = timer_settime(scheduler_timer, 0, &scheduler_timespec, NULL);
+	//intialize S2
+	int ret = timer_settime(S2_timer, 0, &S2_timespec, NULL);
 	if(ret){
 		perror ("timer_settime");
 	}
@@ -167,5 +185,6 @@ void main(void){
 	
 	sleep(10);
 
-	closelog ();
+	closelog();
+	sem_destroy(&scheduler_flag);
 }
