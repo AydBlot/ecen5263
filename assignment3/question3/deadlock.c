@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <sched.h>
 #include <time.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -15,9 +16,15 @@ typedef struct
     int threadIdx;
 } threadParams_t;
 
+timer_t deadlock_release_timer;
+struct itimerspec deadlock_release_timespec;
+struct sigevent deadlock_release_time_eventt; 
 
 pthread_t threads[NUM_THREADS];
 threadParams_t threadParams[NUM_THREADS];
+
+int lockA_owned = 0;
+int lockB_owned = 0;
 
 struct sched_param nrt_param;
 
@@ -42,14 +49,18 @@ void *grabRsrcs(void *threadp)
    {
      printf("THREAD 1 grabbing resources\n");
      pthread_mutex_lock(&rsrcA);
+     lockA_owned=1;
      rsrcACnt++;
      if(!noWait) sleep(1);
      printf("THREAD 1 got A, trying for B\n");
      pthread_mutex_lock(&rsrcB);
+     lockB_owned=1;
      rsrcBCnt++;
      printf("THREAD 1 got A and B\n");
      pthread_mutex_unlock(&rsrcB);
      pthread_mutex_unlock(&rsrcA);
+     lockA_owned=0;
+     lockB_owned=0;
      printf("THREAD 1 done\n");
    }
    else
@@ -57,18 +68,34 @@ void *grabRsrcs(void *threadp)
      printf("THREAD 2 grabbing resources\n");
      pthread_mutex_lock(&rsrcB);
      rsrcBCnt++;
+     lockB_owned=1;
      if(!noWait) sleep(1);
      printf("THREAD 2 got B, trying for A\n");
      pthread_mutex_lock(&rsrcA);
      rsrcACnt++;
+     lockA_owned=1;
      printf("THREAD 2 got B and A\n");
      pthread_mutex_unlock(&rsrcA);
      pthread_mutex_unlock(&rsrcB);
+     lockB_owned=0;
+     lockA_owned=0;
      printf("THREAD 2 done\n");
    }
    pthread_exit(NULL);
 }
 
+// This timer is called every 2 seconds to attempt to prevent the deadlock from occuring.
+void deadlock_release_timer_handler(union sigval sv){
+     printf("made timer\r\n");
+     if(lockA_owned == 1){
+	     pthread_mutex_unlock(&rsrcA);
+	     lockA_owned=0;
+     }
+     if(lockB_owned == 1){
+	     pthread_mutex_unlock(&rsrcB);
+	     lockB_owned=0;
+     }
+}
 
 int main (int argc, char *argv[])
 {
@@ -94,6 +121,36 @@ int main (int argc, char *argv[])
      printf("Usage: deadlock [safe|race|unsafe]\n");
    }
 
+
+   //configure deadlock timespec to start in 2 seconds
+   deadlock_release_timespec.it_value.tv_sec = 2;
+   deadlock_release_timespec.it_value.tv_nsec = 0;
+
+   //configure deadlock timespec to restart every 2 seconds
+   deadlock_release_timespec.it_interval.tv_sec = 2;
+   deadlock_release_timespec.it_interval.tv_nsec = 0;
+
+   //Pass function pointer and timer value to the event structure
+   deadlock_release_time_eventt.sigev_notify = SIGEV_THREAD;
+   deadlock_release_time_eventt.sigev_notify_function = &deadlock_release_timer_handler;
+   deadlock_release_time_eventt.sigev_notify_attributes = NULL;
+   deadlock_release_time_eventt.sigev_value.sival_ptr = &deadlock_release_timer;
+   deadlock_release_time_eventt.sigev_value.sival_int = 0;
+
+   //create the Timer with the proper event
+   int ret1 = timer_create(CLOCK_REALTIME, &deadlock_release_time_eventt, &deadlock_release_timer);
+   printf("timer ret1 val=%d\r\n", ret1);
+
+   if (ret1){
+	   perror ("S1_timer_create");
+   }
+   printf("created timer to control locks\r\n");
+
+   //Start the timer so it executes the function
+   int deadlock_release_ret = timer_settime(deadlock_release_timer, 0, &deadlock_release_timespec, NULL);
+   if(deadlock_release_ret){
+	   perror ("timer_settime");
+   }
 
    printf("Creating thread %d\n", THREAD_1);
    threadParams[THREAD_1].threadIdx=THREAD_1;
