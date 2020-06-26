@@ -53,13 +53,15 @@ void *timer_update_handler(void* args){
 	char buf[30];
 
 	while(1){
-		clock_gettime(CLOCK_REALTIME, &timeoutTime);
+		timeoutTime = global_data.current_time;
 		timeoutTime.tv_sec += 10;
+		usleep(20000);
 		int retval = pthread_mutex_timedlock(&lock, &timeoutTime); 
-		printf("retval for timer update:%d\r\n", retval);
+		//timespec2str(buf, sizeof(buf), &global_data.current_time);
+		//printf("retval for timer update:%d\r\n", retval);
 		if(retval != 0){
 			timespec2str(buf, sizeof(buf), &timeoutTime);
-			printf("No new data available at time %s\r\n", buf);
+			printf("-------------------------------------No new data available at time %s----------------------------------\r\n", buf);
 		}
 		else{
 			pthread_mutex_unlock(&lock);
@@ -69,13 +71,14 @@ void *timer_update_handler(void* args){
 
 void *reader_thread_handler(void* args){
 	char buf[30];
-	struct timespec timeoutTime;
+	//struct timespec timeoutTime;
 	while(1){
-		clock_gettime(CLOCK_REALTIME, &timeoutTime);
-		timeoutTime.tv_sec += 10;
-		pthread_mutex_timedlock(&lock, &timeoutTime); 
+		printf("Reader waiting on lock\r\n");
+		//clock_gettime(CLOCK_REALTIME, &timeoutTime);
+		//timeoutTime.tv_sec += 10;
+		//pthread_mutex_timedlock(&lock, &timeoutTime); 
 
-		//pthread_mutex_lock(&lock);
+		pthread_mutex_lock(&lock);
 
 		printf("Current yaw:%lf, pitch:%lf, roll:%lf\r\n", global_data.yaw, global_data.pitch, global_data.roll);
 
@@ -84,10 +87,10 @@ void *reader_thread_handler(void* args){
 		printf("X acceleration:%lf, Y acceleration:%lf, Z acceleration:%lf\r\n", global_data.x_acceleration, global_data.y_acceleration, global_data.z_acceleration);
 		timespec2str(buf, sizeof(buf), &global_data.current_time);
 
-		printf("at time:%s\r\n", buf); 
+		printf("Time:%s\r\n", buf); 
 
+		sleep(10);
 		pthread_mutex_unlock(&lock);
-		sleep(1);
 	}
 
 }
@@ -95,10 +98,11 @@ void *reader_thread_handler(void* args){
 //This thread will update the acceleration, position, and angle.
 void *updater_thread_handler(void* args){
 	while(1){
+		printf("updater waiting on lock\r\n");
 		pthread_mutex_lock(&lock);
 		clock_gettime(CLOCK_REALTIME, &global_data.current_time);
 		
-		//Update X Y z positions based off acceleration
+		//Update X Y Z positions based off acceleration
 		if(global_data.x < 2670.0){
 			global_data.x+= global_data.x_acceleration;
 		}
@@ -140,8 +144,8 @@ void *updater_thread_handler(void* args){
 		global_data.y_acceleration+=0.004;
 		global_data.x_acceleration+=0.076;
 
-		pthread_mutex_unlock(&lock); 
 		sleep(1);
+		pthread_mutex_unlock(&lock); 
 	}
 }
 
@@ -151,26 +155,25 @@ void main(void){
 	pthread_t updater_thread;
 	pthread_t timer_update_thread;
 
-	printf("made ittttt\r\n");
-
-	printf("made it\r\n");
 	//Initialize mutex lock
 	if (pthread_mutex_init(&lock, NULL) != 0) { 
 		printf("\n mutex init has failed\n"); 
 		exit(EXIT_FAILURE); 
 	} 
 
-	printf("made it1\r\n");
-
 	if(pthread_create(&updater_thread, NULL, updater_thread_handler, NULL) < 0) {
 		perror("updater thread creation failed");
 		exit(EXIT_FAILURE);
 	}
+	
+	sleep(1);
 
 	if(pthread_create(&reader_thread, NULL, reader_thread_handler, NULL) < 0) {
 		perror("reader thread creation failed");
 		exit(EXIT_FAILURE);
 	}
+
+	sleep(1);
 
 	if(pthread_create(&timer_update_thread, NULL, timer_update_handler, NULL) < 0) {
 		perror("Timer update thread creation failed");
@@ -180,6 +183,7 @@ void main(void){
 	sleep(100);
 	pthread_join(reader_thread, NULL); 
 	pthread_join(updater_thread, NULL); 
+	pthread_join(timer_update_thread, NULL); 
 	pthread_mutex_destroy(&lock);
 	
 
