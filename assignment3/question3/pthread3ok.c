@@ -416,7 +416,7 @@ void *criticalSectionTask(void *threadp)
   else if(idleIdx == MID_PRIO_SERVICE) printf("\nCS-M REQUEST\n");
   else if(idleIdx == HIGH_PRIO_SERVICE) printf("\nCS-H REQUEST\n");
 
-  //pthread_mutex_lock(&sharedMemSem);
+  pthread_mutex_lock(&sharedMemSem);
   CScnt++;
 
   if(idleIdx == LOW_PRIO_SERVICE) printf("\nCS-L ENTRY %u\n", CScnt);
@@ -438,7 +438,7 @@ void *criticalSectionTask(void *threadp)
   else if(idleIdx == MID_PRIO_SERVICE) printf("\nCS-M LEAVING\n");
   else if(idleIdx == HIGH_PRIO_SERVICE) printf("\nCS-H LEAVING\n");
 
-  //pthread_mutex_unlock(&sharedMemSem);
+  pthread_mutex_unlock(&sharedMemSem);
 
   if(idleIdx == LOW_PRIO_SERVICE) printf("\nCS-L EXIT\n");
   else if(idleIdx == MID_PRIO_SERVICE) printf("\nCS-M EXIT\n");
