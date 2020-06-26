@@ -23,7 +23,7 @@ distclean:
 	-rm -f pthread
 
 watchdog_thread_safe_program: watchdog_thread_safe_program.o
-	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $@.o -lpthread
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $@.o -lpthread -lrt
 
 depend:
 
