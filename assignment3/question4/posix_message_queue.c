@@ -38,12 +38,19 @@ int timespec2str(char *buf, uint len, struct timespec *ts) {
 }
 
 void *sender_thread_handler(void* args){
+
+	int nbytes;
+	int i;
+	char place_holder;
 	mqd_t mq;
 	char time_buf[50]; 
+	char message_to_send[27] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	printf("size is:%d\r\n", sizeof(message_to_send));
 
 	/* create the message queue */
 	mq = mq_open(MESSAGE_QUEUE_NAME, O_CREAT|O_WRONLY, 0, &attr);
-	printf(" Value of MQ open in sender errno: %d\n ", errno);
+	//printf(" Value of MQ open in sender errno: %d\n ", errno);
 
 	if(mq == (mqd_t)-1){
 		printf("womp womp sender\r\n");
@@ -54,29 +61,36 @@ void *sender_thread_handler(void* args){
 		clock_gettime(CLOCK_REALTIME, &current_time);
 		timespec2str(time_buf, sizeof(time_buf), &current_time);
 		printf("Sending message at time:%s\r\n", time_buf);
+
+		/* send message with priority=30 */
+		if((nbytes = mq_send(mq, message_to_send, sizeof(message_to_send), 30)) == -1)
+		{
+			perror("mq_send");
+		}
+		else
+		{
+			printf("send: message successfully sent\n");
+		}
+		
+		//Make the message a bit different each time
+		place_holder = message_to_send[0];
+		//printf("place holder:%c\r\n", place_holder);
+		for(i = 0; i < sizeof(message_to_send) - 1; i++) {
+			message_to_send[i] = message_to_send[i + 1]; 
+		}		
+		
+		message_to_send[i-1] = place_holder;		
+		sleep(1);
 	}
 
 }
 
-static char imagebuff[4096];
 void *receiver_thread_handler(void* args){
 	mqd_t mq;
+	int prio;
+	int nbytes;
+	char buffer[MAX_MSG_SIZE];
 	char time_buf[50];
-	int i, j;
-	char pixel = 'A';
-
-	for(i=0;i<4096;i+=64) {
-		pixel = 'A';
-		for(j=i;j<i+64;j++) {
-			imagebuff[j] = (char)pixel++;
-		}
-		imagebuff[j-1] = '\n';
-	}
-
-	imagebuff[4095] = '\0';
-	imagebuff[63] = '\0';
-
-	printf("buffer = %s\r\n", imagebuff);
 
 	/* create the message queue */
 	mq = mq_open(MESSAGE_QUEUE_NAME, O_RDONLY);
@@ -90,6 +104,18 @@ void *receiver_thread_handler(void* args){
 		clock_gettime(CLOCK_REALTIME, &current_time);
 		timespec2str(time_buf, sizeof(time_buf), &current_time);
 		printf("Receiving message at time:%s\r\n", time_buf);
+		
+		/* read oldest, highest priority msg from the message queue */
+		if((nbytes = mq_receive(mq, buffer, MAX_MSG_SIZE, &prio)) == -1)
+		{
+			perror("mq_receive");
+		}
+		else
+		{
+			buffer[nbytes] = '\0';
+			printf("receive: msg %s received with priority = %d, length = %d\n",
+			buffer, prio, nbytes);
+		}
 	}
 
 }
