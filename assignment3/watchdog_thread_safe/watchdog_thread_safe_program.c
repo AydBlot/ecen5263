@@ -82,7 +82,7 @@ void reader_timer_handler(union sigval sv){
 
 	printf("Current yaw:%lf, pitch:%lf, roll:%lf\r\n", global_data.yaw, global_data.pitch, global_data.roll);
 
-	printf("X position:%lf, Y position:%lf, Z position%lf\r\n", global_data.x, global_data.y, global_data.z);
+	printf("X position:%lf, Y position:%lf, Z position:%lf\r\n", global_data.x, global_data.y, global_data.z);
 
 	printf("X acceleration:%lf, Y acceleration:%lf, Z acceleration:%lf\r\n", global_data.x_acceleration, global_data.y_acceleration, global_data.z_acceleration);
 	timespec2str(buf, sizeof(buf), &global_data.current_time);
@@ -100,17 +100,11 @@ void *updater_thread_handler(void* args){
 		clock_gettime(CLOCK_REALTIME, &global_data.current_time);
 		
 		//Update X Y Z positions based off acceleration
-		if(global_data.x < 2670.0){
-			global_data.x+= global_data.x_acceleration;
-		}
+		global_data.x+= global_data.x_acceleration;
 
-		if(global_data.y < 500){
-			global_data.y+= global_data.y_acceleration;
-		}
+		global_data.y+= global_data.y_acceleration;
 
-		if(global_data.z < 36000.0){
-			global_data.z+= global_data.z_acceleration;
-		}
+		global_data.z+= global_data.z_acceleration;
 
 		//Update Roll Pitch and Yaw
 		if(global_data.roll < 30){
