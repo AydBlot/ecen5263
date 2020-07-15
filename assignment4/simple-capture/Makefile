@@ -1,0 +1,32 @@
+INCLUDE_DIRS = 
+LIB_DIRS = 
+CC=gcc
+
+CDEFS=
+CFLAGS= -O0 -g $(INCLUDE_DIRS) $(CDEFS)
+LIBS= -lrt
+
+HFILES= sharpen.h
+CFILES= capture.c sharpen.c
+
+SRCS= ${HFILES} ${CFILES}
+OBJS= ${CFILES:.c=.o}
+
+all:	continuous_transform_capture
+
+clean:
+	-rm -f *.o *.d
+	-rm -f continuous_transform_capture
+
+distclean:
+	-rm -f *.o *.d
+
+continuous_transform_capture: capture.o sharpen.o
+	      $(CC) $(CFLAGS) capture.o sharpen.o -o continuous_transform_capture
+
+capture: capture.c sharpen.h
+	$(CC) $(CFLAGS) -c capture.c 
+
+sharpen: sharpen.c sharpen.h
+	$(CC) $(CFLAGS) -c sharpen.c 
+	
