@@ -47,10 +47,11 @@
 #define COLOR_CONVERT
 //#define SHARPEN
 
-#define HRES 320
-#define VRES 240
-#define HRES_STR "320"
-#define VRES_STR "240"
+#define HRES 160
+#define VRES 120
+#define TRANSFORM_STR "color covert"
+#define HRES_STR "160"
+#define VRES_STR "120"
 
 // Format is used by a number of functions, so made as a file global
 static struct v4l2_format fmt;
@@ -321,19 +322,22 @@ static void process_image(const void *p, int size)
     if(process_times_count >= 1){
 	    frame_rates[process_times_count] = (process_times[process_times_count].tv_sec - process_times[process_times_count-1].tv_sec) +
                          (process_times[process_times_count].tv_nsec - process_times[process_times_count-1].tv_nsec) / 1000000000.0; 
-	    syslog(LOG_ERR,"new frame rate is:%fs for frame:%d at resolution 320x240 for transform type greyscale", frame_rates[process_times_count], process_times_count-1);
+	    //syslog(LOG_ERR,"new frame rate is:%fs for frame:%d at resolution %sx%s for transform type greyscale", frame_rates[process_times_count], process_times_count, HRES_STR, VRES_STR);
     }
 
     process_times_count++;
     
     //Calculate the average jitter of successful captures
     double jitter = 0;
+    double total_frame_rate = 0;
     if(process_times_count > 29){
 	for(int frame_rate = process_times_count-1; frame_rate > 0; frame_rate--){
-		printf("Frame rate = %f for frame %d\r\n", frame_rates[frame_rate], frame_rate); 
+		syslog(LOG_ERR, "Frame rate = %f for frame %d for transformation type %s at resolution:%sx%s", frame_rates[frame_rate], frame_rate, TRANSFORM_STR, HRES_STR, VRES_STR); 
+	        total_frame_rate += frame_rates[frame_rate];	
 		jitter += (frame_rates[frame_rate] - frame_rates[frame_rate-1]);
 	}	
-	printf("Average jitter is:%f\r\n", jitter/process_times_count);
+	syslog(LOG_ERR,"Average jitter is:%f", jitter/process_times_count);
+	syslog(LOG_ERR,"Average frame rate is:%f", total_frame_rate/process_times_count);
     }
     //*/
     fflush(stderr);
