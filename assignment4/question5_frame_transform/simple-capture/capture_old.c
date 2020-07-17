@@ -314,7 +314,7 @@ static void process_image(const void *p, int size)
     ///* 
     static struct timespec process_times[30];
     static int process_times_count = 0;
-    static double frame_rates[29];
+    static double frame_rates[30];
     //printf("Process times count:%d\r\n", process_times_count);
     // record when processing finished
     clock_gettime(CLOCK_REALTIME, &process_times[process_times_count]);    
