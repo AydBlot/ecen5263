@@ -310,7 +310,8 @@ static void process_image(const void *p, int size)
         printf("ERROR - unknown dump format\n");
     }
     
-    
+    //Code works if this portion is commented out with FIFO scheduler, this is just temporary to calculate jitter and frame rate.
+    ///* 
     static struct timespec process_times[30];
     static int process_times_count = 0;
     static double frame_rates[29];
@@ -334,7 +335,7 @@ static void process_image(const void *p, int size)
 	}	
 	printf("Average jitter is:%f\r\n", jitter/process_times_count);
     }
-    
+    //*/
     fflush(stderr);
     //fprintf(stderr, ".");
     fflush(stdout);
